@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
 	MIT License http://www.opensource.org/licenses/mit-license.php
 	Author Tobias Koppers @sokra
@@ -5,6 +6,7 @@
 var ConstDependency = require("webpack/lib/dependencies/ConstDependency");
 var NullFactory = require("webpack/lib/NullFactory");
 var MissingLocalizationError = require("./MissingLocalizationError");
+var fs = require('fs');
 
 /**
  *
@@ -12,7 +14,7 @@ var MissingLocalizationError = require("./MissingLocalizationError");
  * @param {object|string} Options object or obselete functionName string
  * @constructor
  */
-function I18nPlugin(localization, options) {
+function I18nPlugin(language, options) {
 	// Backward-compatiblility
 	if (typeof options === "string") {
 		options = {
@@ -25,8 +27,7 @@ function I18nPlugin(localization, options) {
 	}
 
 	this.options = options || {};
-	this.localization = localization? ('function' === typeof localization? localization: makeLocalizeFunction(localization, !!this.options.nested))
-									: null;
+	this.language = language
 	this.functionName = this.options.functionName || "__";
 	this.failOnMissing = !!this.options.failOnMissing;
 	this.hideMessage = this.options.hideMessage || false;
@@ -42,7 +43,10 @@ I18nPlugin.prototype.apply = function(compiler) {
 		compilation.dependencyFactories.set(ConstDependency, new NullFactory());
 		compilation.dependencyTemplates.set(ConstDependency, new ConstDependency.Template());
 	});
+
 	compiler.parser.plugin("call " + this.functionName, function(expr) {
+		const translations = fs.readFileSync(`${compiler.parser.state.current.context}/translations/${this.language}.json`, 'utf8')
+		const translationsJSON = JSON.parse(translations)
 		var param, defaultValue;
 		switch(expr.arguments.length) {
 		case 2:
@@ -61,7 +65,7 @@ I18nPlugin.prototype.apply = function(compiler) {
 		default:
 			return;
 		}
-		var result = localization ? localization(param) : defaultValue;
+		var result = translationsJSON[param] ? translationsJSON[param] : defaultValue;
 		if(typeof result == "undefined") {
 			if (!hideMessage) {
 				var error = this.state.module[__dirname];
